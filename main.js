@@ -3,6 +3,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 
 let win;
+const BAR_HEIGHT = 37;
 
 function getRunningApps() {
   // Try osascript (requires Automation permission for System Events)
@@ -25,7 +26,6 @@ function getRunningApps() {
       if (nameMatch) { current = nameMatch[1]; continue; }
       const typeMatch = line.match(/type="([^"]+)"/);
       if (typeMatch && current) {
-        // Only keep normal foreground apps (not menu-bar/background helpers)
         if (typeMatch[1] === 'Foreground') names.push(current);
         current = null;
       }
@@ -44,18 +44,20 @@ function activateApp(name) {
 }
 
 app.whenReady().then(() => {
-  const { width, height } = screen.getPrimaryDisplay().bounds;
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.bounds;
 
   win = new BrowserWindow({
     width,
-    height,
+    height: BAR_HEIGHT,
     x: 0,
-    y: 0,
+    y: height - BAR_HEIGHT,
     frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
     resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    fullscreenable: false,
+    backgroundColor: '#d2d2d2',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -65,12 +67,23 @@ app.whenReady().then(() => {
 
   win.loadFile('index.html');
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setIgnoreMouseEvents(true, { forward: true });
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  ipcMain.on('mouse-enter', () => win.setIgnoreMouseEvents(false));
-  ipcMain.on('mouse-leave', () => win.setIgnoreMouseEvents(true, { forward: true }));
+  // keep it pinned to the bottom even if the screen resolution changes
+  function reposition() {
+    const d = screen.getPrimaryDisplay().bounds;
+    win.setBounds({ x: 0, y: d.height - BAR_HEIGHT, width: d.width, height: BAR_HEIGHT });
+  }
+  screen.on('display-metrics-changed', reposition);
+  screen.on('display-added', reposition);
+  screen.on('display-removed', reposition);
+
   ipcMain.handle('get-apps', () => getRunningApps());
   ipcMain.on('activate-app', (_, name) => activateApp(name));
+
+  // No-op handlers kept so the renderer's guarded calls never error
+  ipcMain.on('mouse-enter', () => {});
+  ipcMain.on('mouse-leave', () => {});
 });
 
 app.on('window-all-closed', () => app.quit());

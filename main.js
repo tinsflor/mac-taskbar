@@ -42,6 +42,12 @@ function activateApp(name) {
   } catch (e) {}
 }
 
+function quitApp(name) {
+  try {
+    execSync(`osascript -e 'tell application "${name.replace(/"/g, '\\"')}" to quit'`, { timeout: 3000 });
+  } catch (e) {}
+}
+
 // Cache of name -> data URL (or null if unavailable)
 const iconCache = {};
 
@@ -152,6 +158,7 @@ app.whenReady().then(() => {
   ipcMain.handle('get-apps', () => getRunningApps());
   ipcMain.handle('get-icon', (_, name) => getAppIcon(name));
   ipcMain.on('activate-app', (_, name) => activateApp(name));
+  ipcMain.on('quit-app', (_, name) => quitApp(name));
   ipcMain.on('mouse-enter', () => {});
   ipcMain.on('mouse-leave', () => {});
 });

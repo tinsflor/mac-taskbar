@@ -16,34 +16,8 @@ const ICONS = {
 };
 function emojiFor(name) { return ICONS[name] || '🖥️'; }
 
-// Renderer-side cache of real icon data URLs
+// Renderer-side cache of real icon data URLs (undefined = not tried, null = none)
 const realIconCache = {};
-
-// Build an icon element: shows real app logo if available, else emoji.
-function makeIconEl(name, pinned) {
-  const span = document.createElement('span');
-  span.className = 'app-btn-icon';
-
-  if (realIconCache[name]) {
-    span.appendChild(makeImg(realIconCache[name]));
-  } else {
-    span.textContent = emojiFor(name);
-    if (window.electron && window.electron.getIcon && realIconCache[name] !== null) {
-      window.electron.getIcon(name).then(dataUrl => {
-        realIconCache[name] = dataUrl || null;
-        if (dataUrl) {
-          // update any currently-rendered icons for this app
-          document.querySelectorAll(`[data-icon-for="${cssEscape(name)}"]`).forEach(el => {
-            el.textContent = '';
-            el.appendChild(makeImg(dataUrl));
-          });
-        }
-      }).catch(() => {});
-    }
-  }
-  span.setAttribute('data-icon-for', name);
-  return span;
-}
 
 function makeImg(dataUrl) {
   const img = document.createElement('img');
@@ -53,7 +27,31 @@ function makeImg(dataUrl) {
   return img;
 }
 
-function cssEscape(s) { return s.replace(/"/g, '\\"'); }
+function makeIconEl(name) {
+  const span = document.createElement('span');
+  span.className = 'app-btn-icon';
+  span.setAttribute('data-icon-for', name);
+
+  if (realIconCache[name]) {
+    span.appendChild(makeImg(realIconCache[name]));
+  } else {
+    span.textContent = emojiFor(name);
+    if (realIconCache[name] === undefined && window.electron && window.electron.getIcon) {
+      window.electron.getIcon(name).then(dataUrl => {
+        realIconCache[name] = dataUrl || null;
+        if (dataUrl) {
+          document.querySelectorAll('.app-btn-icon').forEach(el => {
+            if (el.getAttribute('data-icon-for') === name) {
+              el.textContent = '';
+              el.appendChild(makeImg(dataUrl));
+            }
+          });
+        }
+      }).catch(() => { realIconCache[name] = null; });
+    }
+  }
+  return span;
+}
 
 // ── Persisted pinned apps ─────────────────────────────────
 const DEFAULT_PINNED = ['Finder', 'Safari', 'Mail', 'Messages', 'Calendar'];
@@ -73,86 +71,136 @@ const ALL_KNOWN_APPS = [
 // ── State ─────────────────────────────────────────────────
 let runningApps = [];
 let activeApp = null;
-let dragName = null;
 
 function activate(name) {
   activeApp = name;
   if (window.electron) window.electron.activateApp(name);
-  render();
+  updatePinnedState();
+  renderRunning();
 }
 
-// ── Render ────────────────────────────────────────────────
-function render() {
-  // Pinned section (icon only, draggable, right-click to remove)
-  const pinnedEl = document.getElementById('pinnedSection');
-  pinnedEl.innerHTML = '';
+function removePin(name) {
+  pinnedApps = pinnedApps.filter(n => n !== name);
+  savePinned();
+  renderPinned();
+}
+
+function addPin(name) {
+  if (!pinnedApps.includes(name)) { pinnedApps.push(name); savePinned(); renderPinned(); renderRunning(); }
+}
+
+// ── Drag-to-reorder (manual, mouse-based) ─────────────────
+let drag = null;
+let suppressClick = false;
+
+function pinnedContainer() { return document.getElementById('pinnedSection'); }
+
+function computeDropIndex(clientX, draggedName) {
+  const order = pinnedApps.filter(n => n !== draggedName);
+  const btns = [...pinnedContainer().querySelectorAll('.pinned-btn')].filter(b => b.dataset.name !== draggedName);
+  for (let i = 0; i < btns.length; i++) {
+    const r = btns[i].getBoundingClientRect();
+    if (clientX < r.left + r.width / 2) {
+      return order.indexOf(btns[i].dataset.name);
+    }
+  }
+  return order.length;
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!drag) return;
+  if (!drag.moved && Math.abs(e.clientX - drag.startX) > 5) {
+    drag.moved = true;
+    const b = [...pinnedContainer().querySelectorAll('.pinned-btn')].find(x => x.dataset.name === drag.name);
+    if (b) b.classList.add('dragging');
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  if (d.moved) {
+    const idx = computeDropIndex(e.clientX, d.name);
+    const without = pinnedApps.filter(n => n !== d.name);
+    without.splice(idx, 0, d.name);
+    pinnedApps = without;
+    savePinned();
+    renderPinned();
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 80);
+  }
+});
+
+// ── Render pinned section ─────────────────────────────────
+function renderPinned() {
+  const el = pinnedContainer();
+  el.innerHTML = '';
   pinnedApps.forEach(name => {
     const isRunning = runningApps.includes(name);
     const btn = document.createElement('button');
     btn.className = 'app-btn pinned-btn' + (isRunning ? ' running' : '') + (name === activeApp ? ' active' : '');
+    btn.dataset.name = name;
     btn.title = name + '  (drag to reorder · right-click to remove)';
-    btn.draggable = true;
-    btn.appendChild(makeIconEl(name, true));
+    btn.appendChild(makeIconEl(name));
 
-    btn.addEventListener('click', () => { if (isRunning) activate(name); });
-
-    // Right-click to unpin
-    btn.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      pinnedApps = pinnedApps.filter(n => n !== name);
-      savePinned();
-      render();
+    btn.addEventListener('mousedown', (e) => {
+      if (e.button === 2) {            // right-click → remove
+        e.preventDefault();
+        removePin(name);
+      } else if (e.button === 0) {     // left button → maybe drag
+        drag = { name, startX: e.clientX, moved: false };
+        e.preventDefault();
+      }
+    });
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); removePin(name); });
+    btn.addEventListener('click', () => {
+      if (suppressClick) return;
+      if (runningApps.includes(name)) activate(name);
     });
 
-    // Drag to reorder
-    btn.addEventListener('dragstart', (e) => {
-      dragName = name;
-      btn.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    btn.addEventListener('dragend', () => { dragName = null; btn.classList.remove('dragging'); });
-    btn.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-    btn.addEventListener('drop', (e) => {
-      e.preventDefault();
-      if (!dragName || dragName === name) return;
-      const from = pinnedApps.indexOf(dragName);
-      const to = pinnedApps.indexOf(name);
-      if (from === -1 || to === -1) return;
-      pinnedApps.splice(from, 1);
-      pinnedApps.splice(to, 0, dragName);
-      savePinned();
-      render();
-    });
-
-    pinnedEl.appendChild(btn);
+    el.appendChild(btn);
   });
+}
 
-  // Running section — only apps not already pinned (icon + name)
-  const runningEl = document.getElementById('runningSection');
-  runningEl.innerHTML = '';
-  const unpinnedRunning = runningApps.filter(n => !pinnedApps.includes(n));
-  unpinnedRunning.forEach(name => {
+// Update running/active classes on existing pinned buttons without rebuilding
+function updatePinnedState() {
+  pinnedContainer().querySelectorAll('.pinned-btn').forEach(btn => {
+    const name = btn.dataset.name;
+    btn.classList.toggle('running', runningApps.includes(name));
+    btn.classList.toggle('active', name === activeApp);
+  });
+}
+
+// ── Render running section ────────────────────────────────
+function renderRunning() {
+  const el = document.getElementById('runningSection');
+  el.innerHTML = '';
+  const unpinned = runningApps.filter(n => !pinnedApps.includes(n));
+  unpinned.forEach(name => {
     const btn = document.createElement('button');
     btn.className = 'app-btn' + (name === activeApp ? ' active' : '');
-    btn.title = name + '  (right-click to pin)';
-    btn.appendChild(makeIconEl(name, false));
+    btn.dataset.name = name;
+    btn.title = name + '  (right-click to quit)';
+    btn.appendChild(makeIconEl(name));
     const label = document.createElement('span');
     label.className = 'app-btn-name';
     label.textContent = name;
     btn.appendChild(label);
 
+    const quit = () => {
+      if (window.electron && window.electron.quitApp) window.electron.quitApp(name);
+      runningApps = runningApps.filter(n => n !== name);   // update immediately
+      renderRunning();
+      setTimeout(refreshApps, 800);                        // re-sync shortly after
+    };
     btn.addEventListener('click', () => activate(name));
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); quit(); });
+    btn.addEventListener('mousedown', (e) => { if (e.button === 2) { e.preventDefault(); quit(); } });
 
-    // Right-click a running app to pin it
-    btn.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      if (!pinnedApps.includes(name)) { pinnedApps.push(name); savePinned(); render(); }
-    });
-
-    runningEl.appendChild(btn);
+    el.appendChild(btn);
   });
-
-  document.getElementById('divider').style.display = unpinnedRunning.length ? '' : 'none';
+  document.getElementById('divider').style.display = unpinned.length ? '' : 'none';
 }
 
 // ── Clock ─────────────────────────────────────────────────
@@ -166,7 +214,7 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
-// ── Running apps polling ──────────────────────────────────
+// ── Running apps polling (does NOT rebuild pinned) ────────
 async function refreshApps() {
   try {
     if (window.electron && window.electron.getApps) {
@@ -174,23 +222,20 @@ async function refreshApps() {
       runningApps = Array.isArray(apps) ? apps : [];
     }
   } catch (e) { runningApps = []; }
-  render();
+  if (!drag) {                 // don't rebuild while the user is dragging
+    updatePinnedState();
+    renderRunning();
+  }
 }
-render();
+
+renderPinned();
+renderRunning();
 refreshApps();
 setInterval(refreshApps, 3000);
 
-// ── Mouse pass-through (no-op for thin bar, kept for safety) ──
-const taskbar = document.getElementById('taskbar');
-const picker = document.getElementById('pinPicker');
-const mEnter = () => { if (window.electron) window.electron.mouseEnter(); };
-const mLeave = () => { if (window.electron) window.electron.mouseLeave(); };
-taskbar.addEventListener('mouseenter', mEnter);
-picker.addEventListener('mouseenter', mEnter);
-taskbar.addEventListener('mouseleave', () => { if (!picker.classList.contains('open')) mLeave(); });
-picker.addEventListener('mouseleave', mLeave);
-
 // ── Pin picker (the + button) ─────────────────────────────
+const picker = document.getElementById('pinPicker');
+
 function renderPicker() {
   const list = document.getElementById('pinPickerList');
   const allApps = [...new Set([...ALL_KNOWN_APPS, ...runningApps])].sort();
@@ -199,7 +244,7 @@ function renderPicker() {
     const isPinned = pinnedApps.includes(name);
     const item = document.createElement('div');
     item.className = 'picker-item' + (isPinned ? ' pinned' : '');
-    const icon = makeIconEl(name, false);
+    const icon = makeIconEl(name);
     icon.classList.add('picker-icon');
     item.appendChild(icon);
     const nm = document.createElement('span');
@@ -216,7 +261,8 @@ function renderPicker() {
       if (isPinned) pinnedApps = pinnedApps.filter(n => n !== name);
       else pinnedApps.push(name);
       savePinned();
-      render();
+      renderPinned();
+      renderRunning();
       renderPicker();
     });
     list.appendChild(item);

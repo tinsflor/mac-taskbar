@@ -1,173 +1,122 @@
-// ── App Data ──────────────────────────────────────────────
-const ALL_APPS = [
-  { name: 'App Store',        icon: '🅰️' },
-  { name: 'Automator',        icon: '🤖' },
-  { name: 'Bartender Pro',    icon: '🍺' },
-  { name: 'BitRecover',       icon: '💾' },
-  { name: 'Bluetooth File Exchange', icon: '🔵' },
-  { name: 'Books',            icon: '📚' },
-  { name: 'BusyContacts',     icon: '👥' },
-  { name: 'Calculator',       icon: '🧮' },
-  { name: 'Calendar',         icon: '📅' },
-  { name: 'Canva',            icon: '🎨' },
-  { name: 'Chess',            icon: '♟️' },
-  { name: 'Clock',            icon: '🕐' },
-  { name: 'Contacts',         icon: '👤' },
-  { name: 'FaceTime',         icon: '📹' },
-  { name: 'Finder',           icon: '🗂️' },
-  { name: 'Google Chrome',    icon: '🌐' },
-  { name: 'Mail',             icon: '✉️' },
-  { name: 'Maps',             icon: '🗺️' },
-  { name: 'Messages',         icon: '💬' },
-  { name: 'Microsoft Excel',  icon: '📊' },
-  { name: 'Microsoft Word',   icon: '📝' },
-  { name: 'Music',            icon: '🎵' },
-  { name: 'Notes',            icon: '📒' },
-  { name: 'Photos',           icon: '🖼️' },
-  { name: 'Print Center',     icon: '🖨️' },
-  { name: 'Reminders',        icon: '✅' },
-  { name: 'Safari',           icon: '🧭' },
-  { name: 'System Settings',  icon: '⚙️' },
-  { name: 'Terminal',         icon: '🖥️' },
-  { name: 'TextEdit',         icon: '✏️' },
-  { name: 'Wispr Flow',       icon: '🎙️' },
-];
+// ── Mouse pass-through (Electron only) ───────────────────
+const isElectron = typeof window.electron !== 'undefined';
 
-const RECENT_APPS = [
-  { name: 'Wispr Flow',       icon: '🎙️' },
-  { name: 'Microsoft Excel',  icon: '📊' },
-  { name: 'Print Center',     icon: '🖨️' },
-  { name: 'Finder',           icon: '🗂️' },
-  { name: 'Google Chrome',    icon: '🌐' },
-  { name: 'System Settings',  icon: '⚙️' },
-  { name: 'App Store',        icon: '🅰️' },
-  { name: 'Calculator',       icon: '🧮' },
-  { name: 'Messages',         icon: '💬' },
-];
-
-// ── Render All Apps (alphabetical with group headers) ─────
-function renderAllApps(apps) {
-  const panel = document.getElementById('allAppsPanel');
-  const grouped = {};
-  apps.forEach(app => {
-    const letter = app.name[0].toUpperCase();
-    if (!grouped[letter]) grouped[letter] = [];
-    grouped[letter].push(app);
-  });
-
-  panel.innerHTML = Object.keys(grouped).sort().map(letter => `
-    <div class="alpha-group">
-      <div class="alpha-header">${letter}</div>
-      ${grouped[letter].map(app => `
-        <div class="app-row">
-          <span class="app-row-icon">${app.icon}</span>
-          <span class="app-row-name">${app.name}</span>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
+function captureMouseFor(el) {
+  if (!isElectron) return;
+  el.addEventListener('mouseenter', () => window.electron.mouseEnter());
+  el.addEventListener('mouseleave', () => window.electron.mouseLeave());
 }
 
-// ── Render Recent Apps ────────────────────────────────────
-function renderRecentApps(apps) {
-  const list = document.getElementById('recentList');
-  list.innerHTML = apps.map(app => `
-    <div class="recent-row">
-      <span class="recent-icon">${app.icon}</span>
-      <span class="recent-name">${app.name}</span>
-    </div>
-  `).join('');
+// capture mouse over taskbar and popups
+['taskbar', 'startMenu', 'notifPanel', 'calPanel'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) captureMouseFor(el);
+});
+
+// ── Clock ─────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const h = pad(now.getHours()), m = pad(now.getMinutes()), s = pad(now.getSeconds());
+  document.getElementById('trayTime').textContent = `${h}:${m}`;
+  document.getElementById('trayDate').textContent = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+  document.getElementById('calClock').textContent = `${h}:${m}:${s}`;
+  document.getElementById('calDate').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
+updateClock();
+setInterval(updateClock, 1000);
 
-renderAllApps(ALL_APPS);
-renderRecentApps(RECENT_APPS);
+// ── Mini calendar ─────────────────────────────────────────
+let calYear, calMonth;
 
-// ── Search filter ─────────────────────────────────────────
-document.getElementById('launcherSearch').addEventListener('input', function () {
-  const q = this.value.toLowerCase().trim();
-  if (!q) {
-    renderAllApps(ALL_APPS);
-  } else {
-    renderAllApps(ALL_APPS.filter(a => a.name.toLowerCase().includes(q)));
+function renderCal(y, m) {
+  calYear = y; calMonth = m;
+  const today = new Date();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInPrev = new Date(y, m, 0).getDate();
+  const monthName = new Date(y, m).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  let html = `<div class="cal-header">
+    <button class="cal-nav" id="calPrev">&#8249;</button>
+    <span>${monthName}</span>
+    <button class="cal-nav" id="calNext">&#8250;</button>
+  </div><div class="cal-grid">
+    ${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div class="cal-dow">${d}</div>`).join('')}`;
+
+  for (let i = 0; i < firstDay; i++)
+    html += `<div class="cal-day other">${daysInPrev - firstDay + 1 + i}</div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
+    html += `<div class="cal-day${isToday ? ' today' : ''}">${d}</div>`;
   }
-});
+  const rem = 42 - firstDay - daysInMonth;
+  for (let d = 1; d <= rem; d++) html += `<div class="cal-day other">${d}</div>`;
+  html += '</div>';
 
-// ── Launcher toggle ───────────────────────────────────────
-const launcher = document.getElementById('launcher');
-
-function openLauncher() {
-  launcher.classList.add('open');
-  setTimeout(() => document.getElementById('launcherSearch').focus(), 50);
+  document.getElementById('miniCal').innerHTML = html;
+  document.getElementById('calPrev').onclick = e => { e.stopPropagation(); let nm = calMonth-1, ny = calYear; if(nm<0){nm=11;ny--;} renderCal(ny,nm); };
+  document.getElementById('calNext').onclick = e => { e.stopPropagation(); let nm = calMonth+1, ny = calYear; if(nm>11){nm=0;ny++;} renderCal(ny,nm); };
 }
 
-function closeLauncher() {
-  launcher.classList.remove('open');
-  document.getElementById('launcherSearch').value = '';
-  renderAllApps(ALL_APPS);
+const now = new Date();
+renderCal(now.getFullYear(), now.getMonth());
+
+// ── Panel management ──────────────────────────────────────
+const panels = {
+  start: document.getElementById('startMenu'),
+  notif: document.getElementById('notifPanel'),
+  cal: document.getElementById('calPanel'),
+};
+
+function closeAll(except) {
+  Object.entries(panels).forEach(([k, el]) => { if (k !== except) el.classList.remove('open'); });
 }
 
-document.getElementById('launchpadBtn').addEventListener('click', (e) => {
+function toggle(name) {
+  const wasOpen = panels[name].classList.contains('open');
+  closeAll();
+  if (!wasOpen) panels[name].classList.add('open');
+}
+
+document.getElementById('startBtn').addEventListener('click', e => { e.stopPropagation(); toggle('start'); });
+document.getElementById('searchBtn').addEventListener('click', e => {
   e.stopPropagation();
-  launcher.classList.contains('open') ? closeLauncher() : openLauncher();
+  const wasOpen = panels.start.classList.contains('open');
+  closeAll();
+  if (!wasOpen) { panels.start.classList.add('open'); setTimeout(() => panels.start.querySelector('.start-search').focus(), 50); }
 });
+document.getElementById('notifBtn').addEventListener('click', e => { e.stopPropagation(); toggle('notif'); });
+document.getElementById('clockBtn').addEventListener('click', e => { e.stopPropagation(); toggle('cal'); });
 
-document.getElementById('desktop').addEventListener('click', closeLauncher);
-launcher.addEventListener('click', (e) => {
-  if (e.target === launcher) closeLauncher();
-});
+document.addEventListener('click', () => closeAll());
+Object.values(panels).forEach(p => p.addEventListener('click', e => e.stopPropagation()));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLauncher();
-});
-
-// ── Dock magnification ────────────────────────────────────
-const dock = document.getElementById('dock');
-const dockItems = dock.querySelectorAll('.dock-item');
-
-dock.addEventListener('mousemove', (e) => {
-  const dockRect = dock.getBoundingClientRect();
-  const mouseX = e.clientX;
-
-  dockItems.forEach(item => {
-    const icon = item.querySelector('.dock-icon');
-    if (!icon || item.classList.contains('dock-divider')) return;
-    const itemRect = item.getBoundingClientRect();
-    const itemCenterX = itemRect.left + itemRect.width / 2;
-    const dist = Math.abs(mouseX - itemCenterX);
-    const maxDist = 120;
-    const maxScale = 1.5;
-    const maxLift = 14;
-
-    if (dist < maxDist) {
-      const factor = 1 - dist / maxDist;
-      const scale = 1 + (maxScale - 1) * factor;
-      const lift = maxLift * factor;
-      icon.style.transform = `translateY(-${lift}px) scale(${scale})`;
-    } else {
-      icon.style.transform = '';
-    }
+// ── App clicks ────────────────────────────────────────────
+document.querySelectorAll('.tb-app').forEach(app => {
+  app.addEventListener('click', () => {
+    const wasActive = app.classList.contains('active');
+    document.querySelectorAll('.tb-app').forEach(a => a.classList.remove('active'));
+    if (!wasActive) app.classList.add('active', 'running');
   });
 });
 
-dock.addEventListener('mouseleave', () => {
-  dockItems.forEach(item => {
-    const icon = item.querySelector('.dock-icon');
-    if (icon) icon.style.transform = '';
-  });
+// ── Quick settings toggles ────────────────────────────────
+document.querySelectorAll('.qs-btn').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); btn.classList.toggle('active'); });
 });
 
-// ── Dock item click bounce ────────────────────────────────
-dockItems.forEach(item => {
-  item.addEventListener('click', () => {
-    const icon = item.querySelector('.dock-icon');
-    if (!icon) return;
-    icon.animate([
-      { transform: 'translateY(0) scale(1)' },
-      { transform: 'translateY(-20px) scale(1.1)' },
-      { transform: 'translateY(0) scale(1)' },
-    ], { duration: 400, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+// ── Clear notifications ───────────────────────────────────
+document.getElementById('clearBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('notifList').innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.35);font-size:12px;padding:12px">No new notifications</div>';
+  document.querySelector('.notif-dot').style.display = 'none';
+});
 
-    const dot = item.querySelector('.dock-dot');
-    if (dot) dot.classList.add('active');
-  });
+// ── Sliders ───────────────────────────────────────────────
+document.querySelectorAll('.slider').forEach(s => {
+  const update = () => s.style.background = `linear-gradient(to right,#60cdff ${s.value}%,rgba(255,255,255,0.15) ${s.value}%)`;
+  s.addEventListener('input', update);
+  update();
 });

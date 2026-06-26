@@ -21,7 +21,8 @@
       "index.html",
       "style.css",
       "app.js",
-      "main.js"
+      "main.js",
+      "preload.js"
     ]
   },
   "devDependencies": {

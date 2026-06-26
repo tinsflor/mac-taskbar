@@ -1,6 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const { execSync } = require('child_process');
 const path = require('path');
+
+let win;
+const BAR_HEIGHT = 37;
 
 function getRunningApps() {
   try {
@@ -37,12 +40,30 @@ function activateApp(name) {
   } catch (e) {}
 }
 
+function barBounds() {
+  // Use workArea so the bar sits in the usable screen region (above the Dock),
+  // where it is guaranteed to be visible.
+  const wa = screen.getPrimaryDisplay().workArea;
+  return {
+    x: wa.x,
+    y: wa.y + wa.height - BAR_HEIGHT,
+    width: wa.width,
+    height: BAR_HEIGHT,
+  };
+}
+
 app.whenReady().then(() => {
-  // DIAGNOSTIC: simplest possible normal window
-  const win = new BrowserWindow({
-    width: 700,
-    height: 120,
-    title: 'Taskbar',
+  win = new BrowserWindow({
+    ...barBounds(),
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    backgroundColor: '#d2d2d2',
+    alwaysOnTop: true,            // default 'floating' level — renders reliably
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -51,6 +72,11 @@ app.whenReady().then(() => {
   });
 
   win.loadFile('index.html');
+
+  function reposition() { win.setBounds(barBounds()); }
+  screen.on('display-metrics-changed', reposition);
+  screen.on('display-added', reposition);
+  screen.on('display-removed', reposition);
 
   ipcMain.handle('get-apps', () => getRunningApps());
   ipcMain.on('activate-app', (_, name) => activateApp(name));

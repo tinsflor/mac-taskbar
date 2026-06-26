@@ -37,8 +37,15 @@ function getRunningApps() {
 }
 
 function activateApp(name) {
+  // `open -a` brings an app to the front and needs NO Automation permission,
+  // so it works on any Mac without the user granting anything.
   try {
-    execSync(`osascript -e 'tell application "${name}" to activate'`, { timeout: 2000 });
+    execSync(`open -a "${name.replace(/"/g, '\\"')}"`, { timeout: 3000 });
+    return;
+  } catch (e) {}
+  // Fallback (needs Automation permission)
+  try {
+    execSync(`osascript -e 'tell application "${name.replace(/"/g, '\\"')}" to activate'`, { timeout: 2000 });
   } catch (e) {}
 }
 

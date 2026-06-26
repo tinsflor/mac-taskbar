@@ -49,15 +49,15 @@ app.whenReady().then(() => {
 
   win = new BrowserWindow({
     width,
-    height: BAR_HEIGHT,
-    x: 0,
-    y: height - BAR_HEIGHT,
+    height: 200,
+    x: 100,
+    y: Math.floor(height / 2) - 100,
     frame: false,
     resizable: false,
     movable: false,
     skipTaskbar: true,
     fullscreenable: false,
-    backgroundColor: '#d2d2d2',
+    backgroundColor: '#ff0000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

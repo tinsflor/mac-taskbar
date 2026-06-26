@@ -14,10 +14,10 @@ html, body {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   height: 48px;
-  background: rgba(20, 20, 20, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(180, 180, 180, 0.72);
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  border-top: 1px solid rgba(255,255,255,0.4);
   display: flex;
   align-items: center;
   padding: 0 6px;
@@ -30,7 +30,7 @@ html, body {
   background: none;
   border: none;
   border-radius: 6px;
-  color: rgba(255,255,255,0.85);
+  color: rgba(0,0,0,0.75);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -39,25 +39,25 @@ html, body {
   transition: background 0.12s;
   padding: 0 10px;
 }
-.tb-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.tb-btn:active { background: rgba(255,255,255,0.15); }
+.tb-btn:hover { background: rgba(0,0,0,0.08); color: rgba(0,0,0,0.9); }
+.tb-btn:active { background: rgba(0,0,0,0.12); }
 
 .start-btn { width: 40px; padding: 0; }
 
 .search-pill {
   width: 180px;
-  background: rgba(255,255,255,0.07);
+  background: rgba(0,0,0,0.08);
   border-radius: 20px;
   gap: 6px;
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(0,0,0,0.5);
   justify-content: flex-start;
 }
-.search-pill:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); }
+.search-pill:hover { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.8); }
 
 .tb-sep {
   width: 1px; height: 22px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.15);
   margin: 0 4px; flex-shrink: 0;
 }
 
@@ -99,29 +99,29 @@ html, body {
   font-size: 13px; border-radius: 4px; cursor: pointer;
   transition: background 0.12s;
 }
-.tray-icon:hover { background: rgba(255,255,255,0.1); }
+.tray-icon:hover { background: rgba(0,0,0,0.08); }
 
-.tray-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.1); margin: 0 3px; }
+.tray-sep { width: 1px; height: 18px; background: rgba(0,0,0,0.15); margin: 0 3px; }
 
 .clock-btn {
   background: none; border: none;
-  color: rgba(255,255,255,0.9); cursor: pointer;
+  color: rgba(0,0,0,0.8); cursor: pointer;
   border-radius: 6px; padding: 2px 8px;
   display: flex; flex-direction: column;
   align-items: flex-end; justify-content: center;
   gap: 1px; height: 40px;
   transition: background 0.12s;
 }
-.clock-btn:hover { background: rgba(255,255,255,0.1); }
+.clock-btn:hover { background: rgba(0,0,0,0.08); }
 .tray-time { font-size: 12px; }
-.tray-date { font-size: 10px; color: rgba(255,255,255,0.65); }
+.tray-date { font-size: 10px; color: rgba(0,0,0,0.55); }
 
 .notif-btn { width: 32px; height: 36px; padding: 0; position: relative; }
 .notif-dot {
   position: absolute; top: 5px; right: 5px;
   width: 6px; height: 6px;
-  background: #60cdff; border-radius: 50%;
-  border: 1.5px solid rgba(20,20,20,0.9);
+  background: #0078d4; border-radius: 50%;
+  border: 1.5px solid rgba(180,180,180,0.72);
 }
 
 /* ── Popups (shared) ─────────────────────────────────── */

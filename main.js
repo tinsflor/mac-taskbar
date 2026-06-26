@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, Menu } = require('electron');
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -46,6 +46,44 @@ function quitApp(name) {
   try {
     execSync(`osascript -e 'tell application "${name.replace(/"/g, '\\"')}" to quit'`, { timeout: 3000 });
   } catch (e) {}
+}
+
+function openApp(name) {
+  try {
+    execSync(`open -a "${name.replace(/"/g, '\\"')}"`, { timeout: 3000 });
+  } catch (e) {}
+}
+
+function relaunchApp(name) {
+  quitApp(name);
+  setTimeout(() => openApp(name), 1500);
+}
+
+// Nudge the renderer to re-poll running apps shortly after an action
+function nudge() {
+  setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.send('refresh'); }, 900);
+}
+
+function showAppMenu(info) {
+  const { name, isPinned, isRunning } = info;
+  const template = [];
+
+  if (isRunning) {
+    template.push({ label: `Bring "${name}" to Front`, click: () => activateApp(name) });
+    template.push({ label: 'Relaunch', click: () => { relaunchApp(name); nudge(); } });
+    template.push({ label: 'Quit', click: () => { quitApp(name); nudge(); } });
+  } else {
+    template.push({ label: `Open "${name}"`, click: () => { openApp(name); nudge(); } });
+  }
+
+  template.push({ type: 'separator' });
+  if (isPinned) {
+    template.push({ label: 'Unpin from Taskbar', click: () => win.webContents.send('menu-unpin', name) });
+  } else {
+    template.push({ label: 'Pin to Taskbar', click: () => win.webContents.send('menu-pin', name) });
+  }
+
+  Menu.buildFromTemplate(template).popup({ window: win });
 }
 
 // Cache of name -> data URL (or null if unavailable)
@@ -159,6 +197,7 @@ app.whenReady().then(() => {
   ipcMain.handle('get-icon', (_, name) => getAppIcon(name));
   ipcMain.on('activate-app', (_, name) => activateApp(name));
   ipcMain.on('quit-app', (_, name) => quitApp(name));
+  ipcMain.on('show-app-menu', (_, info) => showAppMenu(info));
   ipcMain.on('mouse-enter', () => {});
   ipcMain.on('mouse-leave', () => {});
 });

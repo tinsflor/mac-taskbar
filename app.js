@@ -89,6 +89,20 @@ function addPin(name) {
   if (!pinnedApps.includes(name)) { pinnedApps.push(name); savePinned(); renderPinned(); renderRunning(); }
 }
 
+// Ask the main process to show a native right-click menu for this app
+function openAppMenu(name, isPinned) {
+  if (window.electron && window.electron.showAppMenu) {
+    window.electron.showAppMenu({ name, isPinned, isRunning: runningApps.includes(name) });
+  }
+}
+
+// Menu actions handled in the main process come back as events
+if (window.electron) {
+  if (window.electron.onMenuUnpin) window.electron.onMenuUnpin((name) => removePin(name));
+  if (window.electron.onMenuPin) window.electron.onMenuPin((name) => addPin(name));
+  if (window.electron.onRefresh) window.electron.onRefresh(() => refreshApps());
+}
+
 // ── Drag-to-reorder (manual, mouse-based) ─────────────────
 let drag = null;
 let suppressClick = false;
@@ -145,15 +159,15 @@ function renderPinned() {
     btn.appendChild(makeIconEl(name));
 
     btn.addEventListener('mousedown', (e) => {
-      if (e.button === 2) {            // right-click → remove
+      if (e.button === 2) {            // right-click → context menu
         e.preventDefault();
-        removePin(name);
+        openAppMenu(name, true);
       } else if (e.button === 0) {     // left button → maybe drag
         drag = { name, startX: e.clientX, moved: false };
         e.preventDefault();
       }
     });
-    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); removePin(name); });
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); openAppMenu(name, true); });
     btn.addEventListener('click', () => {
       if (suppressClick) return;
       if (runningApps.includes(name)) activate(name);
@@ -188,15 +202,9 @@ function renderRunning() {
     label.textContent = name;
     btn.appendChild(label);
 
-    const quit = () => {
-      if (window.electron && window.electron.quitApp) window.electron.quitApp(name);
-      runningApps = runningApps.filter(n => n !== name);   // update immediately
-      renderRunning();
-      setTimeout(refreshApps, 800);                        // re-sync shortly after
-    };
     btn.addEventListener('click', () => activate(name));
-    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); quit(); });
-    btn.addEventListener('mousedown', (e) => { if (e.button === 2) { e.preventDefault(); quit(); } });
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); openAppMenu(name, false); });
+    btn.addEventListener('mousedown', (e) => { if (e.button === 2) { e.preventDefault(); openAppMenu(name, false); } });
 
     el.appendChild(btn);
   });

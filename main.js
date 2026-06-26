@@ -1,6 +1,8 @@
 const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const { execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 let win;
 const BAR_HEIGHT = 37;
@@ -43,22 +45,45 @@ function activateApp(name) {
 // Cache of name -> data URL (or null if unavailable)
 const iconCache = {};
 
-async function getAppIcon(name) {
-  if (Object.prototype.hasOwnProperty.call(iconCache, name)) return iconCache[name];
+function appPathFor(name) {
   try {
-    const appPath = execSync(
+    const p = execSync(
       `osascript -e 'POSIX path of (path to application "${name.replace(/"/g, '\\"')}")'`,
       { timeout: 3000 }
     ).toString().trim();
-    if (appPath) {
-      const img = await app.getFileIcon(appPath, { size: 'large' });
-      const dataUrl = img && !img.isEmpty() ? img.toDataURL() : null;
-      iconCache[name] = dataUrl;
-      return dataUrl;
+    return p || null;
+  } catch (e) { return null; }
+}
+
+// Render an app's real icon to PNG using QuickLook (qlmanage), return a data URL.
+// Avoids app.getFileIcon, which crashes (NOTREACHED) on this Electron build.
+function getAppIcon(name) {
+  if (Object.prototype.hasOwnProperty.call(iconCache, name)) return iconCache[name];
+
+  let result = null;
+  const appPath = appPathFor(name);
+  if (appPath) {
+    let dir;
+    try {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tbicon-'));
+      execSync(
+        `qlmanage -t -s 64 -o "${dir}" "${appPath.replace(/"/g, '\\"')}"`,
+        { timeout: 5000, stdio: 'ignore' }
+      );
+      const png = fs.readdirSync(dir).find(f => f.endsWith('.png'));
+      if (png) {
+        const buf = fs.readFileSync(path.join(dir, png));
+        result = 'data:image/png;base64,' + buf.toString('base64');
+      }
+    } catch (e) {
+      result = null;
+    } finally {
+      if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} }
     }
-  } catch (e) {}
-  iconCache[name] = null;
-  return null;
+  }
+
+  iconCache[name] = result;
+  return result;
 }
 
 function barBounds() {

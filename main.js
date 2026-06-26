@@ -16,15 +16,22 @@ function getRunningApps() {
 
   // Fallback: lsappinfo (no special permission needed)
   try {
-    const result = execSync('lsappinfo list -only name 2>/dev/null', { timeout: 3000 }).toString();
+    const result = execSync('lsappinfo list 2>/dev/null', { timeout: 3000 }).toString();
+    const lines = result.split('\n');
     const names = [];
-    result.split('\n').forEach(line => {
-      const match = line.match(/name="([^"]+)"/);
-      if (match && match[1] && !['Taskbar','Electron','Dock','SystemUIServer','WindowServer'].includes(match[1])) {
-        names.push(match[1]);
+    let current = null;
+    for (const line of lines) {
+      const nameMatch = line.match(/^\s*\d+\)\s+"([^"]+)"/);
+      if (nameMatch) { current = nameMatch[1]; continue; }
+      const typeMatch = line.match(/type="([^"]+)"/);
+      if (typeMatch && current) {
+        // Only keep normal foreground apps (not menu-bar/background helpers)
+        if (typeMatch[1] === 'Foreground') names.push(current);
+        current = null;
       }
-    });
-    return [...new Set(names)];
+    }
+    const skip = ['Taskbar', 'Electron'];
+    return [...new Set(names)].filter(n => !skip.includes(n));
   } catch (e) {}
 
   return [];

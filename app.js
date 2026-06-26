@@ -55,7 +55,7 @@ function render() {
     btn.addEventListener('click', () => {
       if (isRunning) {
         activeApp = name;
-        window.electron.activateApp(name);
+        if (window.electron) window.electron.activateApp(name);
         render();
       }
     });
@@ -73,7 +73,7 @@ function render() {
     btn.innerHTML = `<span class="app-btn-icon">${iconFor(name)}</span><span class="app-btn-name">${name}</span>`;
     btn.addEventListener('click', () => {
       activeApp = name;
-      window.electron.activateApp(name);
+      if (window.electron) window.electron.activateApp(name);
       render();
     });
     runningEl.appendChild(btn);
@@ -96,10 +96,19 @@ setInterval(updateClock, 10000);
 
 // ── Fetch running apps ────────────────────────────────────
 async function refreshApps() {
-  const apps = await window.electron.getApps();
-  runningApps = apps;
+  try {
+    if (window.electron && window.electron.getApps) {
+      const apps = await window.electron.getApps();
+      runningApps = Array.isArray(apps) ? apps : [];
+    }
+  } catch (e) {
+    runningApps = [];
+  }
   render();
 }
+
+// Render pinned apps immediately so the bar is never empty
+render();
 refreshApps();
 setInterval(refreshApps, 3000);
 
@@ -107,12 +116,15 @@ setInterval(refreshApps, 3000);
 const taskbar = document.getElementById('taskbar');
 const picker = document.getElementById('pinPicker');
 
-taskbar.addEventListener('mouseenter', () => window.electron.mouseEnter());
-picker.addEventListener('mouseenter', () => window.electron.mouseEnter());
-taskbar.addEventListener('mouseleave', (e) => {
-  if (!picker.classList.contains('open')) window.electron.mouseLeave();
+const mouseEnter = () => { if (window.electron) window.electron.mouseEnter(); };
+const mouseLeave = () => { if (window.electron) window.electron.mouseLeave(); };
+
+taskbar.addEventListener('mouseenter', mouseEnter);
+picker.addEventListener('mouseenter', mouseEnter);
+taskbar.addEventListener('mouseleave', () => {
+  if (!picker.classList.contains('open')) mouseLeave();
 });
-picker.addEventListener('mouseleave', () => window.electron.mouseLeave());
+picker.addEventListener('mouseleave', mouseLeave);
 
 // ── Pin picker ────────────────────────────────────────────
 function renderPicker(knownApps) {

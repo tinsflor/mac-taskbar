@@ -124,30 +124,77 @@ function findIcns(appPath) {
   return null;
 }
 
-// Convert an app's icon to a 64px PNG data URL using sips (fast, built-in).
-// Avoids app.getFileIcon (crashes) and qlmanage (hangs) on this setup.
+// A small JavaScript-for-Automation script that asks macOS (NSWorkspace) for an
+// app's rendered icon and writes it as a 64px PNG. Works for every app, including
+// ones that store their icon in an asset catalog (Spotify, TV, Music, etc.).
+const JXA_ICON_SCRIPT = `
+ObjC.import('Cocoa');
+function run(argv) {
+  var appPath = argv[0], outPath = argv[1];
+  var icon = $.NSWorkspace.sharedWorkspace.iconForFile(appPath);
+  if (!icon) return;
+  var size = $.NSMakeSize(64, 64);
+  var out = $.NSImage.alloc.initWithSize(size);
+  out.lockFocus;
+  icon.drawInRectFromRectOperationFraction($.NSMakeRect(0, 0, 64, 64), $.NSZeroRect, 2, 1.0);
+  out.unlockFocus;
+  var tiff = out.TIFFRepresentation;
+  var rep = $.NSBitmapImageRep.imageRepWithData(tiff);
+  var png = rep.representationUsingTypeProperties(4, $());
+  png.writeToFileAtomically(outPath, true);
+}
+`;
+
+let jxaScriptPath = null;
+function ensureJxaScript() {
+  if (jxaScriptPath && fs.existsSync(jxaScriptPath)) return jxaScriptPath;
+  jxaScriptPath = path.join(os.tmpdir(), 'taskbar_icon.jxa.js');
+  fs.writeFileSync(jxaScriptPath, JXA_ICON_SCRIPT);
+  return jxaScriptPath;
+}
+
+function readPngAsDataUrl(file) {
+  if (fs.existsSync(file)) {
+    const buf = fs.readFileSync(file);
+    try { fs.unlinkSync(file); } catch (e) {}
+    if (buf.length > 0) return 'data:image/png;base64,' + buf.toString('base64');
+  }
+  return null;
+}
+
+// Get an app's real icon as a PNG data URL. Tries NSWorkspace first (universal),
+// then falls back to extracting a .icns with sips. Caches per name.
 function getAppIcon(name) {
   if (Object.prototype.hasOwnProperty.call(iconCache, name)) return iconCache[name];
 
   let result = null;
   const appPath = appPathFor(name);
   if (appPath) {
+    const safePath = appPath.replace(/"/g, '\\"');
+
+    // 1) NSWorkspace via JXA — works for asset-catalog icons too
     try {
-      const icns = findIcns(appPath);
-      if (icns) {
-        const out = path.join(os.tmpdir(), `tbicon_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
-        execSync(
-          `sips -s format png "${icns.replace(/"/g, '\\"')}" --out "${out}" -Z 64`,
-          { timeout: 5000, stdio: 'ignore' }
-        );
-        if (fs.existsSync(out)) {
-          const buf = fs.readFileSync(out);
-          result = 'data:image/png;base64,' + buf.toString('base64');
-          try { fs.unlinkSync(out); } catch (e) {}
+      const out = path.join(os.tmpdir(), `tbicon_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+      execSync(
+        `osascript -l JavaScript "${ensureJxaScript()}" "${safePath}" "${out}"`,
+        { timeout: 6000, stdio: 'ignore' }
+      );
+      result = readPngAsDataUrl(out);
+    } catch (e) {}
+
+    // 2) Fallback: extract a .icns and convert with sips
+    if (!result) {
+      try {
+        const icns = findIcns(appPath);
+        if (icns) {
+          const out = path.join(os.tmpdir(), `tbicon_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+          execSync(
+            `sips -s format png "${icns.replace(/"/g, '\\"')}" --out "${out}" -Z 64`,
+            { timeout: 5000, stdio: 'ignore' }
+          );
+          result = readPngAsDataUrl(out);
         }
-      }
-    } catch (e) {
-      result = null;
+      } catch (e) {}
     }
   }
 

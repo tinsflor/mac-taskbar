@@ -55,30 +55,55 @@ function appPathFor(name) {
   } catch (e) { return null; }
 }
 
-// Render an app's real icon to PNG using QuickLook (qlmanage), return a data URL.
-// Avoids app.getFileIcon, which crashes (NOTREACHED) on this Electron build.
+// Find the app's .icns icon file inside its bundle.
+function findIcns(appPath) {
+  const resDir = path.join(appPath, 'Contents', 'Resources');
+  // Prefer the icon named in Info.plist (CFBundleIconFile)
+  try {
+    let iconFile = execSync(
+      `defaults read "${path.join(appPath, 'Contents', 'Info')}" CFBundleIconFile 2>/dev/null`,
+      { timeout: 2000 }
+    ).toString().trim();
+    if (iconFile) {
+      if (!iconFile.toLowerCase().endsWith('.icns')) iconFile += '.icns';
+      const p = path.join(resDir, iconFile);
+      if (fs.existsSync(p)) return p;
+    }
+  } catch (e) {}
+  // Fall back to the first .icns in Resources
+  try {
+    if (fs.existsSync(resDir)) {
+      const f = fs.readdirSync(resDir).find(x => x.toLowerCase().endsWith('.icns'));
+      if (f) return path.join(resDir, f);
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Convert an app's icon to a 64px PNG data URL using sips (fast, built-in).
+// Avoids app.getFileIcon (crashes) and qlmanage (hangs) on this setup.
 function getAppIcon(name) {
   if (Object.prototype.hasOwnProperty.call(iconCache, name)) return iconCache[name];
 
   let result = null;
   const appPath = appPathFor(name);
   if (appPath) {
-    let dir;
     try {
-      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tbicon-'));
-      execSync(
-        `qlmanage -t -s 64 -o "${dir}" "${appPath.replace(/"/g, '\\"')}"`,
-        { timeout: 5000, stdio: 'ignore' }
-      );
-      const png = fs.readdirSync(dir).find(f => f.endsWith('.png'));
-      if (png) {
-        const buf = fs.readFileSync(path.join(dir, png));
-        result = 'data:image/png;base64,' + buf.toString('base64');
+      const icns = findIcns(appPath);
+      if (icns) {
+        const out = path.join(os.tmpdir(), `tbicon_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+        execSync(
+          `sips -s format png "${icns.replace(/"/g, '\\"')}" --out "${out}" -Z 64`,
+          { timeout: 5000, stdio: 'ignore' }
+        );
+        if (fs.existsSync(out)) {
+          const buf = fs.readFileSync(out);
+          result = 'data:image/png;base64,' + buf.toString('base64');
+          try { fs.unlinkSync(out); } catch (e) {}
+        }
       }
     } catch (e) {
       result = null;
-    } finally {
-      if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} }
     }
   }
 

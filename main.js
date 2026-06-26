@@ -40,6 +40,27 @@ function activateApp(name) {
   } catch (e) {}
 }
 
+// Cache of name -> data URL (or null if unavailable)
+const iconCache = {};
+
+async function getAppIcon(name) {
+  if (Object.prototype.hasOwnProperty.call(iconCache, name)) return iconCache[name];
+  try {
+    const appPath = execSync(
+      `osascript -e 'POSIX path of (path to application "${name.replace(/"/g, '\\"')}")'`,
+      { timeout: 3000 }
+    ).toString().trim();
+    if (appPath) {
+      const img = await app.getFileIcon(appPath, { size: 'large' });
+      const dataUrl = img && !img.isEmpty() ? img.toDataURL() : null;
+      iconCache[name] = dataUrl;
+      return dataUrl;
+    }
+  } catch (e) {}
+  iconCache[name] = null;
+  return null;
+}
+
 function barBounds() {
   // Use workArea so the bar sits in the usable screen region (above the Dock),
   // where it is guaranteed to be visible.
@@ -79,6 +100,7 @@ app.whenReady().then(() => {
   screen.on('display-removed', reposition);
 
   ipcMain.handle('get-apps', () => getRunningApps());
+  ipcMain.handle('get-icon', (_, name) => getAppIcon(name));
   ipcMain.on('activate-app', (_, name) => activateApp(name));
   ipcMain.on('mouse-enter', () => {});
   ipcMain.on('mouse-leave', () => {});

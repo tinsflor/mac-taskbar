@@ -56,7 +56,28 @@ html, body {
 .app-btn:hover { background: rgba(0,0,0,0.1); }
 .app-btn.active { background: rgba(0,0,0,0.16); }
 
-.app-btn-icon { font-size: 15px; flex-shrink: 0; line-height: 1; }
+.app-btn-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+.app-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+}
+.pinned-btn .app-logo { width: 20px; height: 20px; }
+
+/* Drag-to-reorder feedback */
+.app-btn.dragging { opacity: 0.4; }
+.pinned-btn { transition: background 0.12s, transform 0.1s; }
 .app-btn-name {
   font-size: 12px;
   color: rgba(0,0,0,0.82);
@@ -69,7 +90,7 @@ html, body {
 /* Pinned: icon only, no label */
 .pinned-btn .app-btn-name { display: none; }
 .pinned-btn { padding: 0 7px; width: 32px; justify-content: center; }
-.pinned-btn .app-btn-icon { font-size: 17px; }
+.pinned-btn .app-btn-icon { font-size: 17px; width: 20px; height: 20px; }
 
 /* Running indicator dot under pinned icons */
 .pinned-btn.running::after {
@@ -154,7 +175,8 @@ html, body {
 .picker-item:hover { background: rgba(0,0,0,0.07); }
 .picker-item.pinned { background: rgba(0,120,215,0.1); }
 
-.picker-icon { font-size: 18px; }
+.picker-icon { font-size: 18px; width: 22px; height: 22px; }
+.picker-icon .app-logo { width: 22px; height: 22px; }
 .picker-name { font-size: 13px; color: rgba(0,0,0,0.82); flex: 1; }
 .picker-check { font-size: 13px; color: #0078d4; }
 

@@ -10,7 +10,7 @@ function getRunningApps() {
       `osascript -e 'tell application "System Events" to get name of every process whose background only is false'`,
       { timeout: 3000 }
     ).toString().trim();
-    return result.split(', ').filter(n => n && n !== 'Taskbar');
+    return result.split(', ').filter(n => n && n !== 'Taskbar' && n !== 'Electron');
   } catch (e) {
     return [];
   }
@@ -34,7 +34,6 @@ app.whenReady().then(() => {
     transparent: true,
     backgroundColor: '#00000000',
     hasShadow: false,
-    alwaysOnTop: true,
     resizable: false,
     webPreferences: {
       nodeIntegration: false,
@@ -44,6 +43,7 @@ app.whenReady().then(() => {
   });
 
   win.loadFile('index.html');
+  win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true, { forward: true });
 
   ipcMain.on('mouse-enter', () => win.setIgnoreMouseEvents(false));

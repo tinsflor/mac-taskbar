@@ -8,58 +8,165 @@ html, body {
   user-select: none;
 }
 
+/* ── Taskbar ─────────────────────────────────────────── */
 .taskbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  height: 32px;
-  background: rgba(200, 200, 200, 0.75);
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
-  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  height: 36px;
+  background: rgba(210, 210, 210, 0.82);
+  backdrop-filter: blur(40px) saturate(2);
+  -webkit-backdrop-filter: blur(40px) saturate(2);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: center;
   padding: 0 6px;
   gap: 2px;
 }
 
-.tb-apps {
+/* ── Sections ────────────────────────────────────────── */
+.section {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 1;
-  overflow: hidden;
 }
 
-.tb-app {
+.divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(0,0,0,0.18);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── App buttons ─────────────────────────────────────── */
+.app-btn {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 0 9px;
-  height: 24px;
-  border-radius: 5px;
+  padding: 0 8px;
+  height: 28px;
+  border-radius: 6px;
   cursor: pointer;
+  border: none;
+  background: none;
   transition: background 0.12s;
-  max-width: 180px;
-  min-width: 32px;
-  flex-shrink: 1;
+  max-width: 160px;
+  position: relative;
 }
-.tb-app:hover { background: rgba(0, 0, 0, 0.12); }
-.tb-app.active { background: rgba(0, 0, 0, 0.18); }
+.app-btn:hover { background: rgba(0,0,0,0.1); }
+.app-btn.active { background: rgba(0,0,0,0.16); }
 
-.tb-app-icon { font-size: 13px; flex-shrink: 0; }
-.tb-app-name {
-  font-size: 11.5px;
-  color: rgba(0, 0, 0, 0.82);
+.app-btn-icon { font-size: 15px; flex-shrink: 0; line-height: 1; }
+.app-btn-name {
+  font-size: 12px;
+  color: rgba(0,0,0,0.82);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 110px;
 }
 
-.tray {
+/* Pinned: icon only, no label */
+.pinned-btn .app-btn-name { display: none; }
+.pinned-btn { padding: 0 7px; width: 32px; justify-content: center; }
+.pinned-btn .app-btn-icon { font-size: 17px; }
+
+/* Running indicator dot under pinned icons */
+.pinned-btn.running::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+}
+
+/* ── Add pin button ──────────────────────────────────── */
+.add-pin-btn {
+  width: 26px; height: 26px;
+  background: rgba(0,0,0,0.08);
+  border: 1px dashed rgba(0,0,0,0.25);
+  border-radius: 6px;
+  font-size: 16px;
+  color: rgba(0,0,0,0.45);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  padding: 0 6px;
+  transition: background 0.12s, color 0.12s;
+  line-height: 1;
+  padding-bottom: 1px;
 }
-.tray-time {
-  font-size: 11.5px;
-  color: rgba(0, 0, 0, 0.75);
+.add-pin-btn:hover { background: rgba(0,0,0,0.14); color: rgba(0,0,0,0.7); }
+
+/* ── Tray ────────────────────────────────────────────── */
+.tray { margin-left: auto; flex-shrink: 0; padding: 0 6px; }
+.tray-time { font-size: 11.5px; color: rgba(0,0,0,0.72); white-space: nowrap; }
+
+/* ── Pin Picker ──────────────────────────────────────── */
+.pin-picker {
+  position: fixed;
+  bottom: 44px;
+  left: 6px;
+  width: 260px;
+  background: rgba(235,235,235,0.96);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  padding: 12px;
+  z-index: 2000;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
 }
+.pin-picker.open { display: flex; }
+
+.pin-picker-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pin-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.pin-picker-list::-webkit-scrollbar { width: 4px; }
+.pin-picker-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 2px; }
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.picker-item:hover { background: rgba(0,0,0,0.07); }
+.picker-item.pinned { background: rgba(0,120,215,0.1); }
+
+.picker-icon { font-size: 18px; }
+.picker-name { font-size: 13px; color: rgba(0,0,0,0.82); flex: 1; }
+.picker-check { font-size: 13px; color: #0078d4; }
+
+.pin-picker-close {
+  background: rgba(0,0,0,0.08);
+  border: none;
+  border-radius: 7px;
+  padding: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.65);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.pin-picker-close:hover { background: rgba(0,0,0,0.14); }

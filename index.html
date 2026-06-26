@@ -6,12 +6,32 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Pin picker overlay -->
+  <div class="pin-picker" id="pinPicker">
+    <div class="pin-picker-title">Choose apps to pin</div>
+    <div class="pin-picker-list" id="pinPickerList"></div>
+    <button class="pin-picker-close" id="pinPickerClose">Done</button>
+  </div>
+
   <div class="taskbar" id="taskbar">
-    <div class="tb-apps" id="tbApps"></div>
+    <!-- Pinned apps -->
+    <div class="section pinned-section" id="pinnedSection"></div>
+
+    <!-- Add pin button -->
+    <button class="add-pin-btn" id="addPinBtn" title="Pin an app">+</button>
+
+    <!-- Divider -->
+    <div class="divider" id="divider"></div>
+
+    <!-- Running apps -->
+    <div class="section running-section" id="runningSection"></div>
+
+    <!-- Clock -->
     <div class="tray">
       <div class="tray-time" id="trayTime"></div>
     </div>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>

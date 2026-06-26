@@ -1,18 +1,86 @@
-// App icons for known apps
-const APP_ICONS = {
+// ── App icon map ──────────────────────────────────────────
+const ICONS = {
   'Finder': '🗂️', 'Safari': '🧭', 'Google Chrome': '🌐', 'Firefox': '🦊',
   'Mail': '✉️', 'Messages': '💬', 'Calendar': '📅', 'Notes': '📒',
   'Photos': '🖼️', 'Music': '🎵', 'Podcasts': '🎙️', 'TV': '📺',
-  'Terminal': '🖥️', 'Xcode': '⚒️', 'TextEdit': '✏️', 'Preview': '🔍',
+  'Terminal': '🖥️', 'TextEdit': '✏️', 'Preview': '👁️', 'Contacts': '👤',
   'System Preferences': '⚙️', 'System Settings': '⚙️', 'App Store': '🛍️',
-  'Microsoft Word': '📝', 'Microsoft Excel': '📊', 'Microsoft PowerPoint': '📊',
+  'Microsoft Word': '📝', 'Microsoft Excel': '📊', 'Microsoft PowerPoint': '📑',
   'Slack': '💬', 'Zoom': '📹', 'Spotify': '🎵', 'Discord': '🎮',
-  'VS Code': '💻', 'Visual Studio Code': '💻', 'Figma': '🎨',
-  'Claude': '🤖', 'Bartender': '🍺', 'FaceTime': '📹',
+  'Visual Studio Code': '💻', 'VS Code': '💻', 'Figma': '🎨',
+  'Claude': '🤖', 'FaceTime': '📹', 'Maps': '🗺️', 'Reminders': '✅',
+  'Pages': '📄', 'Numbers': '📊', 'Keynote': '🎥', 'Books': '📚',
+  'News': '📰', 'Stocks': '📈', 'Weather': '⛅', 'Calculator': '🧮',
+  'Clock': '🕐', 'Home': '🏠', 'Shortcuts': '⚡',
 };
 
 function iconFor(name) {
-  return APP_ICONS[name] || '🖥️';
+  return ICONS[name] || '🖥️';
+}
+
+// ── Persisted pinned apps ─────────────────────────────────
+const DEFAULT_PINNED = ['Finder', 'Safari', 'Mail', 'Messages', 'Calendar'];
+let pinnedApps = JSON.parse(localStorage.getItem('pinnedApps') || 'null') || DEFAULT_PINNED;
+
+function savePinned() {
+  localStorage.setItem('pinnedApps', JSON.stringify(pinnedApps));
+}
+
+// ── Known apps list (for picker) ──────────────────────────
+const ALL_KNOWN_APPS = [
+  'App Store', 'Books', 'Calculator', 'Calendar', 'Clock', 'Contacts',
+  'Discord', 'FaceTime', 'Figma', 'Finder', 'Firefox', 'Google Chrome',
+  'Home', 'Keynote', 'Mail', 'Maps', 'Messages', 'Microsoft Excel',
+  'Microsoft PowerPoint', 'Microsoft Word', 'Music', 'News', 'Notes',
+  'Numbers', 'Pages', 'Photos', 'Podcasts', 'Preview', 'Reminders',
+  'Safari', 'Shortcuts', 'Slack', 'Spotify', 'Stocks', 'System Settings',
+  'Terminal', 'TextEdit', 'TV', 'Visual Studio Code', 'Weather', 'Zoom',
+];
+
+// ── State ─────────────────────────────────────────────────
+let runningApps = [];
+let activeApp = null;
+
+// ── Render taskbar ────────────────────────────────────────
+function render() {
+  // Pinned section
+  const pinnedEl = document.getElementById('pinnedSection');
+  pinnedEl.innerHTML = '';
+  pinnedApps.forEach(name => {
+    const isRunning = runningApps.includes(name);
+    const btn = document.createElement('button');
+    btn.className = 'app-btn pinned-btn' + (isRunning ? ' running' : '') + (name === activeApp ? ' active' : '');
+    btn.title = name;
+    btn.innerHTML = `<span class="app-btn-icon">${iconFor(name)}</span>`;
+    btn.addEventListener('click', () => {
+      if (isRunning) {
+        activeApp = name;
+        window.electron.activateApp(name);
+        render();
+      }
+    });
+    pinnedEl.appendChild(btn);
+  });
+
+  // Running section — only apps not already pinned
+  const runningEl = document.getElementById('runningSection');
+  runningEl.innerHTML = '';
+  const unpinnedRunning = runningApps.filter(n => !pinnedApps.includes(n));
+  unpinnedRunning.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'app-btn' + (name === activeApp ? ' active' : '');
+    btn.title = name;
+    btn.innerHTML = `<span class="app-btn-icon">${iconFor(name)}</span><span class="app-btn-name">${name}</span>`;
+    btn.addEventListener('click', () => {
+      activeApp = name;
+      window.electron.activateApp(name);
+      render();
+    });
+    runningEl.appendChild(btn);
+  });
+
+  // Hide divider if no unpinned running apps
+  document.getElementById('divider').style.display = unpinnedRunning.length ? '' : 'none';
 }
 
 // ── Clock ─────────────────────────────────────────────────
@@ -20,38 +88,71 @@ function updateClock() {
   const now = new Date();
   const h = String(now.getHours()).padStart(2, '0');
   const m = String(now.getMinutes()).padStart(2, '0');
-  document.getElementById('trayTime').textContent =
-    `${h}:${m}  ${now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}`;
+  const date = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+  document.getElementById('trayTime').textContent = `${h}:${m}   ${date}`;
 }
 updateClock();
 setInterval(updateClock, 10000);
 
-// ── Mouse pass-through ────────────────────────────────────
-const taskbar = document.getElementById('taskbar');
-taskbar.addEventListener('mouseenter', () => window.electron.mouseEnter());
-taskbar.addEventListener('mouseleave', () => window.electron.mouseLeave());
-
-// ── Running apps ──────────────────────────────────────────
-let activeApp = null;
-
+// ── Fetch running apps ────────────────────────────────────
 async function refreshApps() {
   const apps = await window.electron.getApps();
-  const container = document.getElementById('tbApps');
-  container.innerHTML = '';
+  runningApps = apps;
+  render();
+}
+refreshApps();
+setInterval(refreshApps, 3000);
 
-  apps.forEach(name => {
-    const el = document.createElement('div');
-    el.className = 'tb-app' + (name === activeApp ? ' active' : '');
-    el.innerHTML = `<span class="tb-app-icon">${iconFor(name)}</span><span class="tb-app-name">${name}</span>`;
-    el.addEventListener('click', () => {
-      activeApp = name;
-      window.electron.activateApp(name);
-      document.querySelectorAll('.tb-app').forEach(a => a.classList.remove('active'));
-      el.classList.add('active');
+// ── Mouse pass-through ────────────────────────────────────
+const taskbar = document.getElementById('taskbar');
+const picker = document.getElementById('pinPicker');
+
+taskbar.addEventListener('mouseenter', () => window.electron.mouseEnter());
+picker.addEventListener('mouseenter', () => window.electron.mouseEnter());
+taskbar.addEventListener('mouseleave', (e) => {
+  if (!picker.classList.contains('open')) window.electron.mouseLeave();
+});
+picker.addEventListener('mouseleave', () => window.electron.mouseLeave());
+
+// ── Pin picker ────────────────────────────────────────────
+function renderPicker(knownApps) {
+  const list = document.getElementById('pinPickerList');
+  // Combine known apps + any running apps not in the list
+  const allApps = [...new Set([...knownApps, ...runningApps])].sort();
+  list.innerHTML = '';
+  allApps.forEach(name => {
+    const isPinned = pinnedApps.includes(name);
+    const item = document.createElement('div');
+    item.className = 'picker-item' + (isPinned ? ' pinned' : '');
+    item.innerHTML = `
+      <span class="picker-icon">${iconFor(name)}</span>
+      <span class="picker-name">${name}</span>
+      ${isPinned ? '<span class="picker-check">✓</span>' : ''}
+    `;
+    item.addEventListener('click', () => {
+      if (isPinned) {
+        pinnedApps = pinnedApps.filter(n => n !== name);
+      } else {
+        pinnedApps.push(name);
+      }
+      savePinned();
+      render();
+      renderPicker(knownApps);
     });
-    container.appendChild(el);
+    list.appendChild(item);
   });
 }
 
-refreshApps();
-setInterval(refreshApps, 3000);
+document.getElementById('addPinBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  picker.classList.toggle('open');
+  if (picker.classList.contains('open')) renderPicker(ALL_KNOWN_APPS);
+});
+
+document.getElementById('pinPickerClose').addEventListener('click', (e) => {
+  e.stopPropagation();
+  picker.classList.remove('open');
+});
+
+document.addEventListener('click', () => picker.classList.remove('open'));
+picker.addEventListener('click', e => e.stopPropagation());

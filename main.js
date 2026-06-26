@@ -5,15 +5,29 @@ const path = require('path');
 let win;
 
 function getRunningApps() {
+  // Try osascript (requires Automation permission for System Events)
   try {
     const result = execSync(
       `osascript -e 'tell application "System Events" to get name of every process whose background only is false'`,
       { timeout: 3000 }
     ).toString().trim();
-    return result.split(', ').filter(n => n && n !== 'Taskbar' && n !== 'Electron');
-  } catch (e) {
-    return [];
-  }
+    if (result) return result.split(', ').filter(n => n && n !== 'Taskbar' && n !== 'Electron');
+  } catch (e) {}
+
+  // Fallback: lsappinfo (no special permission needed)
+  try {
+    const result = execSync('lsappinfo list -only name 2>/dev/null', { timeout: 3000 }).toString();
+    const names = [];
+    result.split('\n').forEach(line => {
+      const match = line.match(/name="([^"]+)"/);
+      if (match && match[1] && !['Taskbar','Electron','Dock','SystemUIServer','WindowServer'].includes(match[1])) {
+        names.push(match[1]);
+      }
+    });
+    return [...new Set(names)];
+  } catch (e) {}
+
+  return [];
 }
 
 function activateApp(name) {

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Taskbar — License</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, 'Helvetica Neue', sans-serif;
+      background: #f2f2f2;
+      color: #1d1d1f;
+      padding: 28px;
+      -webkit-user-select: none;
+    }
+    h1 { font-size: 20px; margin-bottom: 6px; }
+    .status {
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin: 14px 0 20px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+    }
+    .status.trial { color: #8a6d00; background: #fff8e1; border-color: #ffe8a3; }
+    .status.expired { color: #b00020; background: #fdecea; border-color: #f5c2c0; }
+    .status.licensed { color: #0a7a2f; background: #e8f7ee; border-color: #b6e3c6; }
+    label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 1px solid #c8c8c8;
+      border-radius: 8px;
+      outline: none;
+      font-family: ui-monospace, monospace;
+    }
+    input:focus { border-color: #0a84ff; }
+    .row { display: flex; gap: 10px; margin-top: 16px; }
+    button {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .primary { background: #0a84ff; color: #fff; }
+    .primary:hover { background: #0070e0; }
+    .primary:disabled { background: #9bc7ff; cursor: default; }
+    .secondary { background: #e6e6e6; color: #1d1d1f; }
+    .secondary:hover { background: #dadada; }
+    .msg { font-size: 12px; margin-top: 12px; min-height: 16px; }
+    .msg.error { color: #b00020; }
+    .msg.ok { color: #0a7a2f; }
+    .buy-line { font-size: 12px; color: #666; margin-top: 18px; text-align: center; }
+    .buy-line a { color: #0a84ff; cursor: pointer; text-decoration: none; }
+    .buy-line a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Taskbar</h1>
+  <div class="status" id="status">Checking license…</div>
+
+  <label for="key">License key</label>
+  <input id="key" type="text" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
+
+  <div class="row">
+    <button class="primary" id="activateBtn">Activate</button>
+    <button class="secondary" id="buyBtn">Buy a license</button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="buy-line">
+    Don't have a key yet? <a id="buyLink">Get one here</a>.
+  </div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+
+    async function refresh() {
+      const s = await window.electron.licenseStatus();
+      const box = el('status');
+      box.className = 'status ' + s.state;
+      if (s.state === 'licensed') {
+        box.textContent = '✓ Licensed — thank you! This copy is fully activated.';
+        el('key').value = s.key || '';
+      } else if (s.state === 'trial') {
+        box.textContent = `Free trial — ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'} remaining.`;
+      } else {
+        box.textContent = 'Your free trial has ended. Enter a license key to keep using Taskbar.';
+      }
+    }
+
+    el('activateBtn').addEventListener('click', async () => {
+      const btn = el('activateBtn');
+      const msg = el('msg');
+      msg.textContent = '';
+      msg.className = 'msg';
+      btn.disabled = true;
+      btn.textContent = 'Activating…';
+      const res = await window.electron.licenseActivate(el('key').value);
+      btn.disabled = false;
+      btn.textContent = 'Activate';
+      if (res.ok) {
+        msg.textContent = '✓ Activated! You can close this window.';
+        msg.className = 'msg ok';
+        refresh();
+      } else {
+        msg.textContent = res.error || 'Activation failed.';
+        msg.className = 'msg error';
+      }
+    });
+
+    el('buyBtn').addEventListener('click', () => window.electron.licenseBuy());
+    el('buyLink').addEventListener('click', () => window.electron.licenseBuy());
+
+    refresh();
+  </script>
+</body>
+</html>

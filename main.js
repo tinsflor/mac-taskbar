@@ -3,6 +3,25 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const license = require('./license');
+
+let licenseWin = null;
+function openLicenseWindow() {
+  if (licenseWin && !licenseWin.isDestroyed()) { licenseWin.focus(); return; }
+  licenseWin = new BrowserWindow({
+    width: 440,
+    height: 460,
+    resizable: false,
+    title: 'Taskbar — License',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+  licenseWin.loadFile('license.html');
+  licenseWin.on('closed', () => { licenseWin = null; });
+}
 
 let win;
 const BAR_HEIGHT = 37;
@@ -252,6 +271,13 @@ app.whenReady().then(() => {
   ipcMain.on('activate-app', (_, name) => activateApp(name));
   ipcMain.on('quit-app', (_, name) => quitApp(name));
   ipcMain.on('show-app-menu', (_, info) => showAppMenu(info));
+  ipcMain.handle('license:status', () => license.getStatus());
+  ipcMain.handle('license:activate', (_, key) => license.activate(key));
+  ipcMain.on('license:buy', () => license.openBuyPage());
+  ipcMain.on('license:open', () => openLicenseWindow());
+
+  // If the trial has already expired on launch, prompt for a license
+  if (license.getStatus().state === 'expired') openLicenseWindow();
   ipcMain.on('mouse-enter', () => {});
   ipcMain.on('mouse-leave', () => {});
 });

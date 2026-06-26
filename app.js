@@ -211,6 +211,34 @@ function renderRunning() {
   document.getElementById('divider').style.display = unpinned.length ? '' : 'none';
 }
 
+// ── License / trial status pill ───────────────────────────
+async function refreshLicensePill() {
+  const pill = document.getElementById('licensePill');
+  if (!pill || !window.electron || !window.electron.licenseStatus) return;
+  let s;
+  try { s = await window.electron.licenseStatus(); } catch (e) { return; }
+
+  pill.style.display = '';
+  pill.className = 'license-pill ' + s.state;
+  if (s.state === 'licensed') {
+    pill.style.display = 'none';            // hide once paid
+  } else if (s.state === 'trial') {
+    pill.textContent = `Trial: ${s.daysLeft}d`;
+    pill.title = `${s.daysLeft} days left in your free trial — click to enter a license`;
+  } else {
+    pill.textContent = 'Activate';
+    pill.title = 'Trial ended — click to enter a license key';
+  }
+}
+
+document.getElementById('licensePill').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (window.electron && window.electron.licenseOpen) window.electron.licenseOpen();
+});
+
+refreshLicensePill();
+setInterval(refreshLicensePill, 60000);
+
 // ── Clock ─────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();

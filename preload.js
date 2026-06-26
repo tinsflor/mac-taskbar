@@ -11,4 +11,8 @@ contextBridge.exposeInMainWorld('electron', {
   onMenuUnpin: (cb) => ipcRenderer.on('menu-unpin', (_, name) => cb(name)),
   onMenuPin: (cb) => ipcRenderer.on('menu-pin', (_, name) => cb(name)),
   onRefresh: (cb) => ipcRenderer.on('refresh', () => cb()),
+  licenseStatus: () => ipcRenderer.invoke('license:status'),
+  licenseActivate: (key) => ipcRenderer.invoke('license:activate', key),
+  licenseBuy: () => ipcRenderer.send('license:buy'),
+  licenseOpen: () => ipcRenderer.send('license:open'),
 });

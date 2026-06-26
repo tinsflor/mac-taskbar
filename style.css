@@ -122,8 +122,25 @@ html, body {
 .add-pin-btn:hover { background: rgba(0,0,0,0.14); color: rgba(0,0,0,0.7); }
 
 /* ── Tray ────────────────────────────────────────────── */
-.tray { margin-left: auto; flex-shrink: 0; padding: 0 6px; }
+.tray { margin-left: auto; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; gap: 8px; }
 .tray-time { font-size: 11.5px; color: rgba(0,0,0,0.72); white-space: nowrap; }
+
+.license-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  background: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.7);
+  transition: background 0.12s;
+}
+.license-pill:hover { background: rgba(0,0,0,0.18); }
+.license-pill.trial { background: #ffe8a3; color: #7a5d00; }
+.license-pill.expired { background: #f5c2c0; color: #9b0018; }
+.license-pill.licensed { background: rgba(0,0,0,0.08); color: rgba(0,0,0,0.5); }
 
 /* ── Pin Picker ──────────────────────────────────────── */
 .pin-picker {

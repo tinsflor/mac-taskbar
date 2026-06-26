@@ -27,7 +27,9 @@
       "style.css",
       "app.js",
       "main.js",
-      "preload.js"
+      "preload.js",
+      "license.js",
+      "license.html"
     ]
   },
   "devDependencies": {
